@@ -1,0 +1,11 @@
+
+# FIX: Log data in every episode, current data aren't logged correctly, some of them are being set to zero
+if episode % log_interval == 0:
+    print(f"Episode: {episode}, Steps: {steps}, Total Reward: {total_reward}")
+
+# TODO FIX:Increase reward rate over time, make sure the algorithm gets more rewards for every episode and penalties for wrong decisions 
+learning_rate = initial_learning_rate * (1 / (1 + decay_rate * episode))
+
+# Implement green wave algorithm
+# TODO: Add code for green wave algorithm
+
