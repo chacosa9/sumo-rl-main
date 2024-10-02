@@ -1,6 +1,7 @@
 """SUMO Environment for Traffic Signal Control."""
 
 from gymnasium.envs.registration import register
+from .env import SumoEnvironment
 
 
 register(

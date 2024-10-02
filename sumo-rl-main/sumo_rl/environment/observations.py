@@ -38,12 +38,15 @@ class DefaultObservationFunction(ObservationFunction):
         min_green = [0 if self.ts.time_since_last_phase_change < self.ts.min_green + self.ts.yellow_time else 1]
         density = self.ts.get_lanes_density()
         queue = self.ts.get_lanes_queue()
-        observation = np.array(phase_id + min_green + density + queue, dtype=np.float32)
+        
+        is_green_wave = [1 if self.ts.is_green_wave else 0]  # Indicate whether this signal is part of a green wave
+
+        observation = np.array(phase_id + min_green + density + queue + is_green_wave, dtype=np.float32)
         return observation
 
     def observation_space(self) -> spaces.Box:
-        """Return the observation space."""
+        """Return the observation space with Green Wave flag."""
         return spaces.Box(
-            low=np.zeros(self.ts.num_green_phases + 1 + 2 * len(self.ts.lanes), dtype=np.float32),
-            high=np.ones(self.ts.num_green_phases + 1 + 2 * len(self.ts.lanes), dtype=np.float32),
+            low=np.zeros(self.ts.num_green_phases + 1 + 2 * len(self.ts.lanes) + 1, dtype=np.float32),  # +1 for Green Wave flag
+            high=np.ones(self.ts.num_green_phases + 1 + 2 * len(self.ts.lanes) + 1, dtype=np.float32),
         )

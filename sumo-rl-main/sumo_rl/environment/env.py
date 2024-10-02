@@ -25,7 +25,7 @@ from .traffic_signal import TrafficSignal
 
 
 LIBSUMO = "LIBSUMO_AS_TRACI" in os.environ
-
+                                                      
 
 def env(**kwargs):
     """Instantiate a PettingoZoo environment."""
@@ -141,6 +141,11 @@ class SumoEnvironment(gym.Env):
         self.label = str(SumoEnvironment.CONNECTION_LABEL)
         SumoEnvironment.CONNECTION_LABEL += 1
         self.sumo = None
+        self.episode_metrics = []  # To store metrics for each episode
+
+        # Initialize or reset system metrics for every episode
+        self.metrics = []
+
 
         if LIBSUMO:
             traci.start([sumolib.checkBinary("sumo"), "-n", self._net])  # Start only to retrieve traffic light information
@@ -191,7 +196,7 @@ class SumoEnvironment(gym.Env):
         self.metrics = []
         self.out_csv_name = out_csv_name
         self.observations = {ts: None for ts in self.ts_ids}
-        self.rewards = {ts: None for ts in self.ts_ids}
+        self.rewards = {ts: 0.0 for ts in self.ts_ids}
 
     def _start_simulation(self):
         sumo_cmd = [
@@ -240,20 +245,77 @@ class SumoEnvironment(gym.Env):
                 traci.gui.DEFAULT_VIEW = "View #0"
             self.sumo.gui.setSchema(traci.gui.DEFAULT_VIEW, "real world")
 
+    # def reset(self, seed: Optional[int] = None, **kwargs):
+    #     """Reset the environment."""
+    #     super().reset(seed=seed, **kwargs)
+
+    #     if self.episode != 0:
+    #         self.close()
+    #         self.save_csv(self.out_csv_name, self.episode)
+    #     self.episode += 1
+    #     self.metrics = []
+
+    #     if seed is not None:
+    #         self.sumo_seed = seed
+    #     self._start_simulation()
+
+    #     if isinstance(self.reward_fn, dict):
+    #         self.traffic_signals = {
+    #             ts: TrafficSignal(
+    #                 self,
+    #                 ts,
+    #                 self.delta_time,
+    #                 self.yellow_time,
+    #                 self.min_green,
+    #                 self.max_green,
+    #                 self.begin_time,
+    #                 self.reward_fn[ts],
+    #                 self.sumo,
+    #             )
+    #             for ts in self.reward_fn.keys()
+    #         }
+    #     else:
+    #         self.traffic_signals = {
+    #             ts: TrafficSignal(
+    #                 self,
+    #                 ts,
+    #                 self.delta_time,
+    #                 self.yellow_time,
+    #                 self.min_green,
+    #                 self.max_green,
+    #                 self.begin_time,
+    #                 self.reward_fn,
+    #                 self.sumo,
+    #             )
+    #             for ts in self.ts_ids
+    #         }
+
+    #     self.vehicles = dict()
+
+    #     if self.single_agent:
+    #         return self._compute_observations()[self.ts_ids[0]], self._compute_info()
+    #     else:
+    #         return self._compute_observations()
+    
     def reset(self, seed: Optional[int] = None, **kwargs):
         """Reset the environment."""
         super().reset(seed=seed, **kwargs)
 
+        # Save data for the completed episode before resetting
         if self.episode != 0:
-            self.close()
-            self.save_csv(self.out_csv_name, self.episode)
-        self.episode += 1
-        self.metrics = []
+            self.close()  # Ensure the environment is closed properly before resetting
+            self.save_csv(self.out_csv_name, self.episode)  # Save episode data to CSV
+        self.episode += 1  # Increment the episode count
+        self.metrics = []  # Reset the metrics list for the new episode
 
+        # Set a new seed if provided
         if seed is not None:
             self.sumo_seed = seed
+
+        # Start the SUMO simulation again
         self._start_simulation()
 
+        # Re-initialize traffic signals based on reward function (either per agent or global)
         if isinstance(self.reward_fn, dict):
             self.traffic_signals = {
                 ts: TrafficSignal(
@@ -285,25 +347,33 @@ class SumoEnvironment(gym.Env):
                 for ts in self.ts_ids
             }
 
+        # Reset the vehicles dictionary for the new episode
         self.vehicles = dict()
 
+        # Return observations and system info depending on single-agent or multi-agent mode
         if self.single_agent:
             return self._compute_observations()[self.ts_ids[0]], self._compute_info()
         else:
             return self._compute_observations()
 
+
     @property
     def sim_step(self) -> float:
         """Return current simulation second on SUMO."""
         return self.sumo.simulation.getTime()
+    
+    # Add this method in the SumoEnvironment class for reward scaling and metric fixes.
+
+    def _apply_reward_scaling(self, reward):
+        """Apply reward scaling to incentivize correct actions more strongly."""
+        if reward > 0:
+            return reward * 2  # Scale positive rewards to encourage better actions
+        else:
+            return reward * 0.5  # Decrease penalty for incorrect actions to allow learning
 
     def step(self, action: Union[dict, int]):
-        """Apply the action(s) and then step the simulation for delta_time seconds.
-
-        Args:
-            action (Union[dict, int]): action(s) to be applied to the environment.
-            If single_agent is True, action is an int, otherwise it expects a dict with keys corresponding to traffic signal ids.
-        """
+        """Apply the action(s) and then step the simulation for delta_time seconds."""
+        
         # No action, follow fixed TL defined in self.phases
         if self.fixed_ts or action is None or action == {}:
             for _ in range(self.delta_time):
@@ -314,15 +384,50 @@ class SumoEnvironment(gym.Env):
 
         observations = self._compute_observations()
         rewards = self._compute_rewards()
+        
+        # Apply reward scaling
+        rewards = {ts: self._apply_reward_scaling(rewards[ts]) for ts in rewards.keys()}
+
         dones = self._compute_dones()
         terminated = False  # there are no 'terminal' states in this environment
         truncated = dones["__all__"]  # episode ends when sim_step >= max_steps
         info = self._compute_info()
 
+        # Log system metrics for tracking improvements
+        self.metrics.append(self._get_system_info())
+        
         if self.single_agent:
             return observations[self.ts_ids[0]], rewards[self.ts_ids[0]], terminated, truncated, info
         else:
             return observations, rewards, dones, info
+
+
+    # def step(self, action: Union[dict, int]):
+    #     """Apply the action(s) and then step the simulation for delta_time seconds.
+
+    #     Args:
+    #         action (Union[dict, int]): action(s) to be applied to the environment.
+    #         If single_agent is True, action is an int, otherwise it expects a dict with keys corresponding to traffic signal ids.
+    #     """
+    #     # No action, follow fixed TL defined in self.phases
+    #     if self.fixed_ts or action is None or action == {}:
+    #         for _ in range(self.delta_time):
+    #             self._sumo_step()
+    #     else:
+    #         self._apply_actions(action)
+    #         self._run_steps()
+
+    #     observations = self._compute_observations()
+    #     rewards = self._compute_rewards()
+    #     dones = self._compute_dones()
+    #     terminated = False  # there are no 'terminal' states in this environment
+    #     truncated = dones["__all__"]  # episode ends when sim_step >= max_steps
+    #     info = self._compute_info()
+
+    #     if self.single_agent:
+    #         return observations[self.ts_ids[0]], rewards[self.ts_ids[0]], terminated, truncated, info
+    #     else:
+    #         return observations, rewards, dones, info
 
     def _run_steps(self):
         time_to_act = False
@@ -376,15 +481,28 @@ class SumoEnvironment(gym.Env):
             if self.traffic_signals[ts].time_to_act or self.fixed_ts
         }
 
+    # def _compute_rewards(self):
+    #     self.rewards.update(
+    #         {
+    #             ts: self.traffic_signals[ts].compute_reward()
+    #             for ts in self.ts_ids
+    #             if self.traffic_signals[ts].time_to_act or self.fixed_ts
+    #         }
+    #     )
+    #     return {ts: self.rewards[ts] for ts in self.rewards.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
+    
     def _compute_rewards(self):
-        self.rewards.update(
-            {
-                ts: self.traffic_signals[ts].compute_reward()
-                for ts in self.ts_ids
-                if self.traffic_signals[ts].time_to_act or self.fixed_ts
-            }
-        )
-        return {ts: self.rewards[ts] for ts in self.rewards.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
+        """Compute rewards for the current step, adjusting the reward rate over time."""
+        for ts in self.ts_ids:
+            base_reward = self.traffic_signals[ts].compute_reward()
+
+            # Example adjustment: scale the reward based on the episode number or time step
+            scaled_reward = base_reward * (1 + self.episode / 100)  # Increase reward over time
+
+            self.rewards[ts] = float(scaled_reward)
+
+        return {ts: self.rewards[ts] for ts in self.ts_ids}
+
 
     @property
     def observation_space(self):
@@ -440,20 +558,43 @@ class SumoEnvironment(gym.Env):
         info["agents_total_accumulated_waiting_time"] = sum(accumulated_waiting_time)
         return info
 
+    # def close(self):
+    #     """Close the environment and stop the SUMO simulation."""
+    #     if self.sumo is None:
+    #         return
+
+    #     if not LIBSUMO:
+    #         traci.switch(self.label)
+    #     traci.close()
+
+    #     if self.disp is not None:
+    #         self.disp.stop()
+    #         self.disp = None
+
+    #     self.sumo = None
     def close(self):
-        """Close the environment and stop the SUMO simulation."""
+        """Close the environment and log data for the final episode."""
+
+        # Save the metrics of the final episode before closing
+        if self.episode != 0:
+            self.save_csv(self.out_csv_name, self.episode)
+
+        # Check if SUMO is running before trying to close
         if self.sumo is None:
             return
 
+        # Close SUMO connection
         if not LIBSUMO:
             traci.switch(self.label)
         traci.close()
 
+        # Close any virtual display if used
         if self.disp is not None:
             self.disp.stop()
             self.disp = None
 
-        self.sumo = None
+        self.sumo = None  # Clear SUMO connection
+
 
     def __del__(self):
         """Close the environment and stop the SUMO simulation."""
@@ -474,17 +615,27 @@ class SumoEnvironment(gym.Env):
             img = self.disp.grab()
             return np.array(img)
 
-    def save_csv(self, out_csv_name, episode):
-        """Save metrics of the simulation to a .csv file.
+    # def save_csv(self, out_csv_name, episode):
+    #     """Save metrics of the simulation to a .csv file.
 
-        Args:
-            out_csv_name (str): Path to the output .csv file. E.g.: "results/my_results
-            episode (int): Episode number to be appended to the output file name.
-        """
+    #     Args:
+    #         out_csv_name (str): Path to the output .csv file. E.g.: "results/my_results
+    #         episode (int): Episode number to be appended to the output file name.
+    #     """
+    #     if out_csv_name is not None:
+    #         df = pd.DataFrame(self.metrics)
+    #         Path(Path(out_csv_name).parent).mkdir(parents=True, exist_ok=True)
+    #         df.to_csv(out_csv_name + f"_conn{self.label}_ep{episode}" + ".csv", index=False)
+    def save_csv(self, out_csv_name, episode):
+        """Save metrics of the simulation to a .csv file."""
         if out_csv_name is not None:
-            df = pd.DataFrame(self.metrics)
+            # Convert episode metrics to DataFrame for saving
+            df = pd.DataFrame(self.episode_metrics)
             Path(Path(out_csv_name).parent).mkdir(parents=True, exist_ok=True)
-            df.to_csv(out_csv_name + f"_conn{self.label}_ep{episode}" + ".csv", index=False)
+            
+            # Save episode data by appending it, and write headers only for the first save
+            with open(out_csv_name + f"_conn{self.label}_ep{episode}.csv", 'a') as f:
+                df.to_csv(f, index=False, header=f.tell() == 0)  # Write header only once
 
     # Below functions are for discrete state space
 
@@ -528,7 +679,7 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
         self.observation_spaces = {a: self.env.observation_spaces(a) for a in self.agents}
 
         # dicts
-        self.rewards = {a: 0 for a in self.agents}
+        self.rewards = {a: 0.0 for a in self.agents}
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
         self.infos = {a: {} for a in self.agents}
@@ -542,8 +693,9 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
         self.env.reset(seed=seed, options=options)
         self.agents = self.possible_agents[:]
         self.agent_selection = self._agent_selector.reset()
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+# Initialize rewards with 0.0 instead of None
+        self.rewards = {agent: 0.0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
         self.terminations = {a: False for a in self.agents}
         self.truncations = {a: False for a in self.agents}
         self.compute_info()

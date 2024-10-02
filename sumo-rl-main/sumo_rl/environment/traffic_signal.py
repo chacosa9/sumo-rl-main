@@ -2,7 +2,8 @@
 import os
 import sys
 from typing import Callable, List, Union
-
+import numpy as np
+from gymnasium import spaces
 
 if "SUMO_HOME" in os.environ:
     tools = os.path.join(os.environ["SUMO_HOME"], "tools")
@@ -83,6 +84,8 @@ class TrafficSignal:
         self.last_reward = None
         self.reward_fn = reward_fn
         self.sumo = sumo
+        self.is_green_wave = False  # Green Wave flag, can be dynamically set based on the system logic
+
 
         if type(self.reward_fn) is str:
             if self.reward_fn in TrafficSignal.reward_fns.keys():
@@ -103,6 +106,38 @@ class TrafficSignal:
 
         self.observation_space = self.observation_fn.observation_space()
         self.action_space = spaces.Discrete(self.num_green_phases)
+        
+    def set_green_wave(self):
+        """Set Green Wave timing for this signal."""
+        distance = 150  # Assumed fixed distance between intersections
+        avg_speed = self._get_average_speed()
+        green_duration = self._calculate_green_wave_duration(distance, avg_speed)
+        traci.trafficlight.setPhaseDuration(self.id, green_duration)
+
+    def _calculate_green_wave_duration(self, distance, avg_speed):
+        """Calculate optimal green phase duration based on average vehicle speed and distance."""
+        if avg_speed == 0:
+            return self.min_green  # Set minimum green time if no vehicles are moving
+        return max(self.min_green, min(self.max_green, distance / avg_speed))
+    def get_green_wave_duration(self, distance: float, speed: float = 13.89) -> int:
+        """
+        Calculate the green wave duration based on the distance between intersections.
+        Args:
+            distance (float): The distance between intersections (in meters).
+            speed (float): Average speed of the vehicles in m/s (default 13.89 m/s = 50 km/h).
+        Returns:
+            int: Green wave duration in seconds.
+        """
+        # Green wave duration is calculated as time taken to cover the distance at the given speed
+        green_wave_duration = int(distance / speed)
+        return max(self.min_green, green_wave_duration)
+
+
+    def _get_average_speed(self):
+        """Get the average speed of vehicles in the intersection."""
+        vehicles = self.sumo.vehicle.getIDList()
+        speeds = [self.sumo.vehicle.getSpeed(v) for v in vehicles if self.sumo.vehicle.getRoadID(v) in self.lanes]
+        return np.mean(speeds) if speeds else 0
 
     def _build_phases(self):
         phases = self.sumo.trafficlight.getAllProgramLogics(self.id)[0].phases
@@ -145,15 +180,20 @@ class TrafficSignal:
         return self.next_action_time == self.env.sim_step
 
     def update(self):
-        """Updates the traffic signal state.
-
-        If the traffic signal should act, it will set the next green phase and update the next action time.
-        """
+        """Updates the traffic signal state. If the traffic signal should act, it will set the next green phase and update the next action time."""
         self.time_since_last_phase_change += 1
-        if self.is_yellow and self.time_since_last_phase_change == self.yellow_time:
-            # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
-            self.sumo.trafficlight.setRedYellowGreenState(self.id, self.all_phases[self.green_phase].state)
-            self.is_yellow = False
+        
+        # Incorporating Green Wave
+        if self.is_green_wave:
+            distance_between_intersections = 200  # Assume a fixed distance or calculate dynamically
+            green_wave_duration = self.get_green_wave_duration(distance_between_intersections)
+            
+            if self.time_since_last_phase_change >= green_wave_duration:
+                self.set_next_phase((self.green_phase + 1) % self.num_green_phases)
+        else:
+            if self.is_yellow and self.time_since_last_phase_change == self.yellow_time:
+                self.sumo.trafficlight.setRedYellowGreenState(self.id, self.all_phases[self.green_phase].state)
+                self.is_yellow = False
 
     def set_next_phase(self, new_phase: int):
         """Sets what will be the next green phase and sets yellow phase if the next phase is different than the current.
@@ -180,10 +220,31 @@ class TrafficSignal:
         """Computes the observation of the traffic signal."""
         return self.observation_fn()
 
+    # def compute_reward(self):
+    #     """Computes the reward of the traffic signal."""
+    #     self.last_reward = self.reward_fn(self)
+    #     return self.last_reward
     def compute_reward(self):
-        """Computes the reward of the traffic signal."""
-        self.last_reward = self.reward_fn(self)
-        return self.last_reward
+        """Compute the reward of the traffic signal."""
+        base_reward = self.reward_fn(self)
+
+        # Apply Green Wave reward logic
+        green_wave_bonus = 0
+        if self.is_green_wave and self._is_green_wave_successful():
+            green_wave_bonus = 10  # Bonus for Green Wave success
+
+        total_reward = base_reward + green_wave_bonus
+
+        self.last_reward = total_reward
+        return total_reward
+
+    def _is_green_wave_successful(self):
+        """Custom logic to determine if the Green Wave was successful."""
+        # Example: Check if multiple cars passed smoothly without stopping
+        cars_passed = [self.sumo.lane.getLastStepVehicleIDs(lane) for lane in self.lanes]
+        # Custom logic to determine success (e.g., no halting)
+        success = all(len(cars) > 0 for cars in cars_passed)
+        return success
 
     def _pressure_reward(self):
         return self.get_pressure()
