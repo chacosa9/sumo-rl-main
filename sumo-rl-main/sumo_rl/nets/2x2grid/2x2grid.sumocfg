@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+    <input>
+        <net-file value="2x2Grid.net.xml"/>
+        <route-files value="2x2Grid.rou.xml"/>
+    </input>
+
+    <time>
+        <begin value="0"/>
+        <end value="1000"/>
+    </time>
+
+    <processing>
+        <step-length value="0.1"/>
+    </processing>
+
+    <report>
+        <verbose value="true"/>
+    </report>
+</configuration>
+
