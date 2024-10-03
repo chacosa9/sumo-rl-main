@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<routes>
+    <!-- Define vehicle types -->
+    <vType id="car" accel="1.0" decel="5.0" sigma="0.5" length="4.5" maxSpeed="13.89" guiShape="passenger"/>
+
+    <!-- Define vehicle routes -->
+    <vehicle id="car_0" type="car" route="route_0_3" depart="0" color="1,0,0"/>
+    <vehicle id="car_1" type="car" route="route_1_2" depart="1" color="0,1,0"/>
+
+    <!-- Define route between junctions -->
+    <route id="route_0_3" edges="0_1 1_0 2_3"/>
+    <route id="route_1_2" edges="1_0 2_3"/>
+</routes>

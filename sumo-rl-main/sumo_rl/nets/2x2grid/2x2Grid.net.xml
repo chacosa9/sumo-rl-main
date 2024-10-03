@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on qua 13 mar 2019 00:21:37 -03 by Netedit Version 0.32.0
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <sumo-net-file value="nets/2x2grid/2x2.net.xml"/>
+    </input>
+
+    <output>
+        <output-file value="nets/2x2grid/2x2.net.xml"/>
+    </output>
+
+    <processing>
+        <no-turnarounds value="true"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="false"/>
+        <junctions.corner-detail value="0"/>
+        <rectangular-lane-cut value="false"/>
+        <walkingareas value="false"/>
+    </processing>
+
+</configuration>
+-->
+
+<net version="1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/net_file.xsd">
+
+    <!-- Define location and boundaries -->
+    <location netOffset="0.00,0.00" convBoundary="0.00,0.00,400.00,400.00" origBoundary="0.00,0.00,400.00,400.00" projParameter="!"/>
+
+    <!-- Define junctions -->
+    <junction id="0" x="100.00" y="100.00" type="traffic_light"/>
+    <junction id="1" x="100.00" y="300.00" type="traffic_light"/>
+    <junction id="2" x="300.00" y="100.00" type="traffic_light"/>
+    <junction id="3" x="300.00" y="300.00" type="traffic_light"/>
+
+    <!-- Define edges (roads between junctions) -->
+    <edge id="0_1" from="0" to="1" priority="1" numLanes="2" speed="13.89">
+        <lane id="0_1_0" index="0" speed="13.89" length="200.00"/>
+        <lane id="0_1_1" index="1" speed="13.89" length="200.00"/>
+    </edge>
+    <edge id="1_0" from="1" to="0" priority="1" numLanes="2" speed="13.89">
+        <lane id="1_0_0" index="0" speed="13.89" length="200.00"/>
+        <lane id="1_0_1" index="1" speed="13.89" length="200.00"/>
+    </edge>
+    <edge id="2_3" from="2" to="3" priority="1" numLanes="2" speed="13.89">
+        <lane id="2_3_0" index="0" speed="13.89" length="200.00"/>
+        <lane id="2_3_1" index="1" speed="13.89" length="200.00"/>
+    </edge>
+    <edge id="3_2" from="3" to="2" priority="1" numLanes="2" speed="13.89">
+        <lane id="3_2_0" index="0" speed="13.89" length="200.00"/>
+        <lane id="3_2_1" index="1" speed="13.89" length="200.00"/>
+    </edge>
+
+</net>
