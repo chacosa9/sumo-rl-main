@@ -1,16 +1,26 @@
 import os
 import numpy as np
-from sumo_rl.environment import SumoEnvironment
-from sumo_rl.agents.dqn_agent import DQNAgent
+from sumo_rl.environment.env import SumoEnvironment
 import sys
+sys.path.append('/content/sumo-rl-main/sumo-rl-main/sumo_rl/agents')
+
+from dqn_agent import DQNAgent
+
+
+# from sumo_rl.agents.dqn_agent import  DQNAgent
+# /content/sumo-rl-main/sumo-rl-main/sumo_rl/agents/dqn_agent.py
+# import sys
 # sys.path.append("/Users/rakanalrasheed/Desktop/SDAIA Bootcamp/Capstone/sumo-rl-main/sumo-rl-main")
 
 # Add the parent directory (sumo-rl-main) to the path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
 # Directory to save model weights and logs
 SAVE_DIR = 'models/'
+
+if not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)
 
 def train_dqn(env, num_episodes=500, max_steps=2000, save_every=10):
     """Train the DQN agent for traffic signal control using SUMO simulation.
@@ -65,7 +75,7 @@ def train_dqn(env, num_episodes=500, max_steps=2000, save_every=10):
         for ts in env.ts_ids:
             agents[ts].update_target_network()
 
-        print(f"Episode {episode + 1}/{num_episodes} - Total Reward: {total_reward}")
+        print(f"Episode {episode + 1}/{num_episodes} - Total Reward: {total_reward}" ,flush=True)
 
         # Save the model every 'save_every' episodes
         if (episode + 1) % save_every == 0:
@@ -81,10 +91,10 @@ if __name__ == "__main__":
     print("Training started...")
 
     env = SumoEnvironment(
-        net_file = '/Users/rakanalrasheed/Desktop/SDAIA Bootcamp/Capstone/sumo-rl-main/sumo-rl-main/sumo_rl/nets/3x3grid/3x3Grid2lanes.net.xml',
-        route_file = '/Users/rakanalrasheed/Desktop/SDAIA Bootcamp/Capstone/sumo-rl-main/sumo-rl-main/sumo_rl/nets/3x3grid/routes14000.rou.xml',
+        net_file = '/content/sumo-rl-main/sumo-rl-main/sumo_rl/nets/3x3grid/3x3Grid2lanes.net.xml',
+        route_file = '/content/sumo-rl-main/sumo-rl-main/sumo_rl/nets/3x3grid/routes14000.rou.xml',
         out_csv_name='output/DqnTrainingResults/simulation_results.csv',
-        use_gui=True,  # Set to True to visualize simulation
+        use_gui=False,  # Set to True to visualize simulation
         num_seconds=3000  # Simulate for 10,000 seconds per episode
     )
 
