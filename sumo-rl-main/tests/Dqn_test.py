@@ -47,9 +47,6 @@ for ts_id in env.ts_ids:
 num_episodes = 10
 max_steps = int(env.sim_max_time / env.delta_time)
 
-# Placeholder for saving all results
-all_results = []
-
 # Test the models
 for episode in range(num_episodes):
     print(f"Starting episode {episode + 1}/{num_episodes}")
@@ -103,6 +100,7 @@ for episode in range(num_episodes):
     avg_trip_time = total_trip_time / len(vehicle_ids) if len(vehicle_ids) > 0 else 0
     num_vehicles_in_system = len(env.sumo.vehicle.getIDList())
 
+    # Save metrics for this episode
     episode_metrics = {
         "episode": episode + 1,
         "total_vehicles_passed": total_vehicles_passed,
@@ -112,10 +110,8 @@ for episode in range(num_episodes):
         "avg_trip_time": avg_trip_time,
     }
 
-    all_results.append(episode_metrics)
-
-# Save all episode results to a CSV (aggregate)
-df_all_results = pd.DataFrame(all_results)
-df_all_results.to_csv("test_results_modified/test_results_all_episodes.csv", index=False)
+    # Convert to DataFrame and save for each episode
+    df_episode = pd.DataFrame([episode_metrics])
+    df_episode.to_csv(f"test_results_modified/test_results_episode_{episode + 1}.csv", index=False)
 
 env.close()

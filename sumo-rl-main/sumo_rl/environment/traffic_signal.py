@@ -12,6 +12,7 @@ else:
     raise ImportError("Please declare the environment variable 'SUMO_HOME'")
 import numpy as np
 from gymnasium import spaces
+import traci
 
 
 class TrafficSignal:

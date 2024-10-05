@@ -365,11 +365,9 @@ class SumoEnvironment(gym.Env):
     # Add this method in the SumoEnvironment class for reward scaling and metric fixes.
 
     def _apply_reward_scaling(self, reward):
-        """Apply reward scaling to incentivize correct actions more strongly."""
-        if reward > 0:
-            return reward * 2  # Scale positive rewards to encourage better actions
-        else:
-            return reward * 0.5  # Decrease penalty for incorrect actions to allow learning
+        """Dynamically scale rewards and penalties based on congestion level."""
+        congestion_factor = max(1, np.log1p(self.sumo.vehicle.getIDCount()))  # Adjust based on vehicle count
+        return reward * congestion_factor if reward > 0 else reward * congestion_factor
 
     def step(self, action: Union[dict, int]):
         """Apply the action(s) and then step the simulation for delta_time seconds."""
@@ -614,7 +612,6 @@ class SumoEnvironment(gym.Env):
             #                          height=self.virtual_display[1])
             img = self.disp.grab()
             return np.array(img)
-        
         
     def save_csv(self, out_csv_name, episode):
         """Save metrics of the simulation to a .csv file."""
