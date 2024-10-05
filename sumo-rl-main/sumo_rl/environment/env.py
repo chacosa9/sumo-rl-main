@@ -614,30 +614,22 @@ class SumoEnvironment(gym.Env):
             #                          height=self.virtual_display[1])
             img = self.disp.grab()
             return np.array(img)
-
-    # def save_csv(self, out_csv_name, episode):
-    #     """Save metrics of the simulation to a .csv file.
-
-    #     Args:
-    #         out_csv_name (str): Path to the output .csv file. E.g.: "results/my_results
-    #         episode (int): Episode number to be appended to the output file name.
-    #     """
-    #     if out_csv_name is not None:
-    #         df = pd.DataFrame(self.metrics)
-    #         Path(Path(out_csv_name).parent).mkdir(parents=True, exist_ok=True)
-    #         df.to_csv(out_csv_name + f"_conn{self.label}_ep{episode}" + ".csv", index=False)
+        
+        
     def save_csv(self, out_csv_name, episode):
         """Save metrics of the simulation to a .csv file."""
-        if out_csv_name is not None:
+        if out_csv_name is not None and self.episode_metrics:
             # Convert episode metrics to DataFrame for saving
             df = pd.DataFrame(self.episode_metrics)
             Path(Path(out_csv_name).parent).mkdir(parents=True, exist_ok=True)
             
-            # Save episode data by appending it, and write headers only for the first save
-            with open(out_csv_name + f"_conn{self.label}_ep{episode}.csv", 'a') as f:
-                df.to_csv(f, index=False, header=f.tell() == 0)  # Write header only once
-
-    # Below functions are for discrete state space
+            # Check if DataFrame is empty before saving
+            if not df.empty:
+                # Save episode data by appending it, and write headers only for the first save
+                with open(out_csv_name + f"_conn{self.label}_ep{episode}.csv", 'a') as f:
+                    df.to_csv(f, index=False, header=f.tell() == 0)  # Write header only once
+            else:
+                print(f"Warning: Episode {episode} metrics are empty, CSV not saved.")
 
     def encode(self, state, ts_id):
         """Encode the state of the traffic signal into a hashable object."""

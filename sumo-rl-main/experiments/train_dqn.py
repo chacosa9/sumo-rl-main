@@ -70,11 +70,11 @@ def train_dqn(env, num_episodes=500, max_steps=2000, save_every=10):
         # Save the model every 'save_every' episodes
         if (episode + 1) % save_every == 0:
             for ts in env.ts_ids:
-                agents[ts].save(os.path.join(SAVE_DIR, f"dqn_{ts}_episode_{episode + 1}.h5"))
+                agents[ts].save(os.path.join(SAVE_DIR, f"dqn_{ts}_episode_{episode + 1}.pt"))
 
     # Save the final model after training
     for ts in env.ts_ids:
-        agents[ts].save(os.path.join(SAVE_DIR, f"dqn_{ts}_final.h5"))
+        agents[ts].save(os.path.join(SAVE_DIR, f"dqn_{ts}_final.pt"))
 
 if __name__ == "__main__":
     # Load the SUMO environment
@@ -89,4 +89,4 @@ if __name__ == "__main__":
     )
 
     # Train the DQN agents
-    train_dqn(env, num_episodes=300, max_steps=1000, save_every=1)
+    train_dqn(env, num_episodes=200, max_steps=1000, save_every=1)

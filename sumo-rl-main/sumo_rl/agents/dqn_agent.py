@@ -5,6 +5,7 @@ import torch.optim as optim
 import random
 from collections import deque
 
+
 # Define the DQN network architecture
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -17,6 +18,7 @@ class DQN(nn.Module):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         return self.fc3(x)
+    
 
 # Define the DQN Agent
 class DQNAgent:
@@ -91,9 +93,17 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
+    # def save(self, path):
+    #     """Saves the model weights to a file."""
+    #     torch.save(self.model.state_dict(), path)
     def save(self, path):
         """Saves the model weights to a file."""
-        torch.save(self.model.state_dict(), path)
+        try:
+            torch.save(self.model.state_dict(), path)
+            print(f"Model saved successfully at {path}")
+        except Exception as e:
+            print(f"Error saving model: {e}")
+
 
     def load(self, path):
         """Loads the model weights from a file."""
